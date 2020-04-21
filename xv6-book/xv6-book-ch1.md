@@ -34,8 +34,10 @@
 2. **Params**: None
 
 3. **Returns**: 
+    * The call returns in **both the parent process and the child proress**
     * In the parent process: **the child's pid**
     * In the child process: `0`
+    * So we can **check the return value** to do different instructions in different processes
 
 4. The parent and child are executing with **different memory and different registers**: changing a variable in one does not affect the other.
 
@@ -74,6 +76,97 @@
     * at which instruction to **start**
 
 4. **Returns**: When exec succeeds, it **does not return to the calling program**; instead, the instructions loaded from the file **start executing at the entry point** declared in the ELF header. 
+
+### 1.1.5 A simple shell
+
+```c
+...
+
+void
+panic(char *s)
+{
+  fprintf(2, "%s\n", s);
+  exit(1);
+}
+
+int
+fork1(void)
+{
+  int pid;
+
+  pid = fork();
+  if(pid == -1)
+    panic("fork");
+  return pid;
+}
+
+void
+runcmd(struct cmd *cmd)
+{
+  int p[2];
+  ...
+
+  if(cmd == 0)
+    exit(1);
+
+  switch(cmd->type){
+  default:
+    panic("runcmd");
+
+  case EXEC:
+    ecmd = (struct execcmd*)cmd;
+    if(ecmd->argv[0] == 0)
+      exit(1);
+    exec(ecmd->argv[0], ecmd->argv);
+    fprintf(2, "exec %s failed\n", ecmd->argv[0]);
+    break;
+
+  ...
+
+  }
+  exit(0);
+}
+
+int
+main(void)
+{
+  static char buf[100];
+  int fd;
+
+  // Ensure that three file descriptors are open.
+  while((fd = open("console", O_RDWR)) >= 0){
+    if(fd >= 3){
+      close(fd);
+      break;
+    }
+  }
+
+  // Read and run input commands.
+  while(getcmd(buf, sizeof(buf)) >= 0){
+    // Call exec only in the child process
+    if(fork1() == 0)
+      runcmd(parsecmd(buf));
+    // Wait for the child process to be done
+    wait(0);
+  }
+  exit(0);
+}
+
+...
+
+```
+
+### 1.1.6 The `sbrk` system call
+
+1. **Functions**: A process that **needs more memory at run-time** (perhaps for `malloc`) could grow its data memory by `n` (the only param) bytes.
+
+2. **Params**: An integer `n`.
+
+3. **Returns**: The location of the new memory.
+
+### 1.1.7 Others
+
+1. Xv6 does not provide a notion of users or of protecting one user from another; in Unix terms, **all xv6 processes** run as `root`.
 
 ## References
 
