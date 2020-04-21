@@ -37,6 +37,43 @@
     * In the parent process: **the child's pid**
     * In the child process: `0`
 
+4. The parent and child are executing with **different memory and different registers**: changing a variable in one does not affect the other.
+
+### 1.1.2 The `exit` system call
+
+1. **Functions**: 
+    * Cause the calling process to **stop executing**
+    * Release resources such as memory and open files
+
+2. **Params**: An integer status argument:
+    * `0` -> success
+    * `1` -> failure
+
+3. **Returns**: None
+
+### 1.1.3 The `wait` system call
+
+1. **Functions**: Wait for a child of the process to done
+
+2. **Params**: The address which gets the **exit status of the child** (pass a `0` address if not care about the exit status of the child)
+
+3. **Returns**: The `pid` of an existed child of the current process
+
+### 1.1.4 The `exec` system call
+
+1. **Functions**: 
+    * Replace the calling process's memory with a new memory image loaded from a file stored in the file system. 
+
+2. **Params**: 
+    * 1: The name of the file containing the executable
+    * 2: An array of string arguments (*Most programs ignore the first argument, which is conventionally the name of the program.*)
+
+3. The file must have a particular format (xv6 uses the **ELF format**), which specifies:
+    * which part of the file holds **instructions**
+    * which part is **data**
+    * at which instruction to **start**
+
+4. **Returns**: When exec succeeds, it **does not return to the calling program**; instead, the instructions loaded from the file **start executing at the entry point** declared in the ELF header. 
 
 ## References
 
