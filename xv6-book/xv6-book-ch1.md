@@ -168,6 +168,89 @@ main(void)
 
 1. Xv6 does not provide a notion of users or of protecting one user from another; in Unix terms, **all xv6 processes** run as `root`.
 
+## 1.2 I/O and File descriptors
+
+### 1.2.1 File descriptor
+
+1. File descriptor:
+    * A small integer
+    * Represent a kernel-managed object that a process may **read from** or **write to**
+
+2. Ways to create a `fd`:
+    * Open a file, directory or device
+    * Create a pipe
+    * Duplicate an existing `fd`
+
+3. Features of `fd`:
+    * **Every** process has **a private space** of file descriptors
+    * Start from `0`
+
+4. Default `fd`s:
+    * `0`: standard input
+    * `1`: standard output
+    * `2`: standard error
+
+### 1.2.2 The `read` and `write` system call
+
+1. **Functions**: 
+    * In general: Read bytes from and write bytes to open files named **by file descriptors**
+    * `read`: 
+        * **Fewer than** `0` bytes are read only when **an error** occurs
+        * Read data from **the current file offset**
+        * Advance that offset by **the number of bytes read**
+        * when there are no more bytes to read, read returns `0` to **indicate the end of the file**
+    * `write`: 
+        * **Fewer than** `n` bytes are written only when **an error** occurs
+        * Write data at **the current file offset**
+        * Advance that offset by **the number of bytes written**
+
+2. **Params**:
+    * `read(fd, buf, n)` reads **at most** `n` bytes from the file descriptor `fd`, copies them into `buf`
+    * `write(fd, buf, n)` writes `n bytes` from `buf` to the file descriptor `fd`
+
+3. **Returns**: 
+    * `read`: the number of bytes read (`< 0` if **an error occurs**)
+    * `write`: the number of bytes written (`< n` if **an error occurs**)
+
+4. Others: 
+    * Each file descriptor that refers to a file has **an offset** associated with it. 
+
+### 1.2.3 The `close` system call
+
+1. **Functions**: Release a file descriptor, making it free for reuse by a future `open`, `pipe`, or `dup` system call.
+
+2. **Params**: An integer, indicating the `fd`.
+
+### 1.2.4 The `dup` system call
+
+1. **Functions**: 
+    * Duplicate an existing file descriptor `fd`
+    * Return a new one that refers to **the same underlying I/O object**
+
+2. **Params**: `dup(fd)`, in which `fd` is the existing file descriptor
+
+3. **Returns**: A new file descriptor
+
+### 1.2.5 Details about the file descriptor
+
+1. A newly allocated file descriptor is always the **lowest-numbered unused** descriptor of the current process.
+
+2. `fork` **copies the parent’s file descriptor table** along with its memory.
+
+3. `exec` replaces the calling process’s memory but **preserves its file table**.
+
+4. Why it is a good idea that fork and exec are **separate calls**:  Because if they are separate, the shell can `fork` a child, use `open`, `close`, `dup` in the child to **change the standard input and output file descriptors**, and then `exec`. 
+
+5. When two file descriptors **share an offset** (The two conditions below must be both satisfied): 
+    * They were derived from **the same original file descriptor**
+    * By a sequence of `fork` and `dup` calls (These two calls **ONLY**)
+
+6. Dup allows shells to implement commands like this:
+```shell
+ls existing-file non-existing-file > tmp1 2>&1
+```
+The `2>&1` tells the shell to give the command a file descriptor `2` that is **a duplicate of descriptor `1`**. Both the name of the existing file and the error message for the non-existing file will show up in the file `tmp1`.
+
 ## References
 
 1. xv6: a simple, Unix-like teaching operating system
