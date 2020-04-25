@@ -297,6 +297,85 @@ echo hello world | wc
     * Allow for parallel execution of pipeline stages
     * Can block reads and writes more efficiently
 
+## 1.4 File system
+
+### 1.4.1 Features of the file system in xv6
+
+1. The xv6 file system provides data files and directories.
+
+2. The directories form a tree, starting at a special directory call **the root** (the `/` directory).
+
+3. Two kinds of paths:
+    * **Absolute path**: Start with `/`, a path like `/a/b/c` refers to the file or directory named `c` inside the directory named `b` inside the directory named `a` in the root directory `/`.
+    * **Relative path**: Not begin with '/', are evaluated relative to the calling process's current directory.
+
+### 1.4.2 The `chdir` system call
+
+`chdir(target_directory)` changes the current directory to `target_directory`.
+
+### 1.4.3 System calls to create a new file or directory
+
+1. `mkdir(directory_name)` create a new directory named `directory_name` in the current directory.
+
+2. `open` with the `O_CREATE` flag creates **a new data file**.
+
+3. `mknod` creates **a new device file**.
+
+### 1.4.4 The `mknod` system call
+
+1. **Signature**: `mknod(file_name, major_device_number, minor_device_number)`
+
+2. `mknod` creates a device file with **no contents**.
+
+3. The file's metadata marks it as a device file and records the major and minor device numbers, which **uniquely identify a kernel device**.
+
+4. When the process later opens the file, the kernel diverts `read` and `write` system calls to **the kernel device implementation** instead of passing them to the file system.
+
+### 1.4.5 The `fstat` system call
+
+1. `fstat` retrieves information about **the object a file descriptor refers to**. It fills in a `struct stat`, defined as:
+```c
+#define T_DIR     1   // Directory
+#define T_FILE    2   // File
+#define T_DEVICE  3   // Device
+
+struct stat {
+    int dev;     // File system's disk device
+    uint ino;    // Inode number
+    short type;  // Type of file
+    short nlink; // Number of links to file
+    uint64 size; // Size of file in bytes
+};
+```
+
+2. The **same** underlying file, call an **inode**, can have **multiple names**, called **links**.
+
+3. A file's name is **distinct** from itself.
+
+4. Each inode is identified by **a unique inode number**.
+
+### 1.4.6 The `link` and `unlink` system call
+
+1. The `link(new_name, original_name)` system call creates **another file system name** `new_name` referering to **the same inode** as an existing file named `original_name`.
+
+2. Reading from `new_name` is the same as reading from `original_name`.
+
+3. The `unlink` system call removes a name from the file system.
+
+4. The file's inode and the disk space holding its content are **only freed** when **the file's link count is `0` and no file descriptors refer to it**.
+
+5. An idiomatic way to create a **temporary inode** that will be cleaned up when **the process closes `fd`** or **exits**:
+```c
+fd = open("/tmp/xyz", O_CREATE | O_RDWR);
+unlink("/tmp/xyz");
+```
+
+### 1.4.7 About program levels
+
+1. Shell commands for the file system operations are implemented as **user-level programs**.
+
+2. One exception is `cd`, which is build into the shell. It must change the current working directory of **the shell itself**, so we can **only** use **the parent process**.
+
 ## References
 
 1. xv6: a simple, Unix-like teaching operating system
