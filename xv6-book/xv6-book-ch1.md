@@ -85,71 +85,71 @@
 void
 panic(char *s)
 {
-  fprintf(2, "%s\n", s);
-  exit(1);
+    fprintf(2, "%s\n", s);
+    exit(1);
 }
 
 int
 fork1(void)
 {
-  int pid;
+    int pid;
 
-  pid = fork();
-  if(pid == -1)
-    panic("fork");
-  return pid;
+    pid = fork();
+    if(pid == -1)
+        panic("fork");
+    return pid;
 }
 
 void
 runcmd(struct cmd *cmd)
 {
-  int p[2];
-  ...
+    int p[2];
+    ...
 
-  if(cmd == 0)
-    exit(1);
+    if(cmd == 0)
+        exit(1);
 
-  switch(cmd->type){
-  default:
-    panic("runcmd");
+    switch(cmd->type){
+    default:
+        panic("runcmd");
 
-  case EXEC:
-    ecmd = (struct execcmd*)cmd;
-    if(ecmd->argv[0] == 0)
-      exit(1);
-    exec(ecmd->argv[0], ecmd->argv);
-    fprintf(2, "exec %s failed\n", ecmd->argv[0]);
-    break;
+    case EXEC:
+        ecmd = (struct execcmd*)cmd;
+        if(ecmd->argv[0] == 0)
+            exit(1);
+        exec(ecmd->argv[0], ecmd->argv);
+        fprintf(2, "exec %s failed\n", ecmd->argv[0]);
+        break;
 
-  ...
+    ...
 
-  }
-  exit(0);
+    }
+    exit(0);
 }
 
 int
 main(void)
 {
-  static char buf[100];
-  int fd;
+    static char buf[100];
+    int fd;
 
-  // Ensure that three file descriptors are open.
-  while((fd = open("console", O_RDWR)) >= 0){
-    if(fd >= 3){
-      close(fd);
-      break;
+    // Ensure that three file descriptors are open.
+    while((fd = open("console", O_RDWR)) >= 0){
+        if(fd >= 3){
+            close(fd);
+            break;
+        }
     }
-  }
 
-  // Read and run input commands.
-  while(getcmd(buf, sizeof(buf)) >= 0){
-    // Call exec only in the child process
-    if(fork1() == 0)
-      runcmd(parsecmd(buf));
-    // Wait for the child process to be done
-    wait(0);
-  }
-  exit(0);
+    // Read and run input commands.
+    while(getcmd(buf, sizeof(buf)) >= 0){
+        // Call exec only in the child process
+        if(fork1() == 0)
+            runcmd(parsecmd(buf));
+        // Wait for the child process to be done
+        wait(0);
+    }
+    exit(0);
 }
 
 ...
@@ -250,6 +250,52 @@ main(void)
 ls existing-file non-existing-file > tmp1 2>&1
 ```
 The `2>&1` tells the shell to give the command a file descriptor `2` that is **a duplicate of descriptor `1`**. Both the name of the existing file and the error message for the non-existing file will show up in the file `tmp1`.
+
+## 1.3 Pipes
+
+1. **Definition**: A pipe is a small kernel **buffer** exposed to processes as **a pair of file descriptors**, one for reading and one for writing. 
+
+2. **Features**:
+    * Writing data to one end of the pipe makes that data avaliable for reading from the other end of the pipe
+    * If no data is available, a `read` on a pipe waits for one of the following conditions to happen:
+        * Some data is written to the pipe
+        * All file descriptors referring to the write end are all closed (In this case, `read` will return `0`)
+
+3. **Usage**:
+```c
+int p[2];
+char *argv[2];
+
+argv[0] = "wc";
+argv[1] = 0;
+
+pipe(p);
+if (fork() == 0) {
+    close(0);
+    dup(p[0]);
+    close(p[0]);
+    close(p[1]);
+    exec("/bin/wc", argv);
+} else {
+    close(p[0]);
+    write(p[1], "hello world\en", 12);
+    close(p[1]);
+}
+```
+* Write and read ends:
+    * `p[0]` refers to the read end
+    * `p[1]` refers to the write end
+
+4. **Example in a shell**:
+```sh
+echo hello world | wc
+```
+
+5. **Advantages**: 
+    * Automatically clean themselves up
+    * Can pass arbitrarily long streams of data
+    * Allow for parallel execution of pipeline stages
+    * Can block reads and writes more efficiently
 
 ## References
 
